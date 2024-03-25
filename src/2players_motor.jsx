@@ -1,9 +1,8 @@
 import { useEffect, createRef, useRef, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { StatusBar } from 'expo-status-bar';
-import { isColision, getPosiciones } from './motor';
+import { isColision, getPosiciones } from 'motor';
 
-export default function App() {
+export default function Motor () {
 
   let [map, setMap] = useState([]);
   let [playAnim, setPlayAnim] = useState(false);
@@ -145,7 +144,6 @@ export default function App() {
         f.element
       ))}
 
-      <StatusBar style="auto" />
     </Pressable>
   );
 }
