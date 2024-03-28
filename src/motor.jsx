@@ -1,6 +1,6 @@
 import { useEffect, createRef, useRef, useState } from 'react';
 import { Alert, Pressable, StyleSheet, Dimensions, Text, View } from 'react-native';
-import { isColision, getPosiciones } from './utils';
+import { isColision, getPosiciones, comprobarColisionConLosBordesMapa } from './utils';
 
 export default function Motor () {
 
@@ -27,25 +27,12 @@ export default function Motor () {
   const fichaDefaultInfo = useRef(false);
   const getElementFicha = (newRef, data)=> <View key={data.id} ref={newRef} style={{position:"absolute", left:data.x, top:data.y, backgroundColor: data.color || "purple", height:data.radio, width:data.radio, borderRadius:data.radio/2}}/>;
 
-  function comprobarColisionConLosBordesMapa (pos){
-    if (pos.x >= fichaDefaultInfo.current.radio/2 && pos.x <= tableroConfig.current.width-(fichaDefaultInfo.current.radio/2)) {
-      if (pos.y >= fichaDefaultInfo.current.radio/2 && pos.y <= tableroConfig.current.height-(fichaDefaultInfo.current.radio/2)) {
-        return true;
-      }
-    }
-  }
-
   function ponerFicha (position){
 
     tirarFicha.current = false;
 
-    console.log("FICHA: ", fichaDefaultInfo.current);
-    console.log(tableroConfig.current);
-    /* console.log("POS: ", position); */
-
-    const res = comprobarColisionConLosBordesMapa(position);
+    const res = comprobarColisionConLosBordesMapa(position, fichaDefaultInfo.current, tableroConfig.current);
     if (!res) {
-      console.log("COLISION BORDE");
       tirarFicha.current = true;
       return;
     }
@@ -66,6 +53,7 @@ export default function Motor () {
     newFicha.data.color = jugadorTurnoIndex.current == 0 ? "blue" : "purple";
     newFicha.ref = createRef(null);
     newFicha.element = getElementFicha(newFicha.ref, newFicha.data);
+    setTimeout(()=>console.log(newFicha.ref.current.removeChild), 500);
 
     // AGREGAR AL MAPA Y AL DOM
     setMap(map1 => [...map1, newFicha]);
@@ -160,13 +148,14 @@ export default function Motor () {
   async function animar (old, neww, msProp){
 
     let ms = msProp || 300;
+    const fps = 20;
     let currentMS = 0;
     let porcentaje = 0;
     const indexFicha = map.findIndex(a => a.data.id == old.id);
 
     indexFicha > -1 && await new Promise (complete => {
       const animFrame = setInterval(()=>{
-        currentMS += 20;
+        currentMS += ms/fps;
 
         porcentaje = currentMS/ms*100;
 
@@ -182,10 +171,10 @@ export default function Motor () {
 
         if (currentMS == ms) {
           clearInterval(animFrame);
-          setTimeout(i => complete(), 250);
+          setTimeout(() => complete(), 250);
         }
 
-      }, 25);          
+      }, ms/fps);          
     });
 
   }
@@ -208,11 +197,11 @@ export default function Motor () {
     if (!fichaDefaultInfo.current && !tableroConfig.current) {
 
       tableroConfig.current = {height:screen.height*85/100, width:screen.width*45/100};
-      const radio = tableroConfig.current.width*6/100;
+      const radio = tableroConfig.current.width*7/100;
 
       fichaDefaultInfo.current = {
         radio: radio,
-        colision: radio*3, 
+        colision: radio*3.5, 
         color:"purple"
       }
       
@@ -220,9 +209,9 @@ export default function Motor () {
 
     setInitScreen(true);
 
-    setTimeout(()=>{
+    /* setTimeout(()=>{
       ponerFicha({x:314.28, y:296.28});
-    }, 1000);
+    }, 1000); */
   }, []);
 
    return initScreen && (
@@ -235,9 +224,7 @@ export default function Motor () {
       </View> */}
       <Pressable style={{flex:1, backgroundColor:"#000"}} onPress={(e)=>onPressPonerFicha(e.nativeEvent)}>
 
-        {map.map((f)=>(
-          f.element
-        ))}
+        {map.map((f)=>f.element)}
 
       </Pressable>
 

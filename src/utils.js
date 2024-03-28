@@ -46,3 +46,11 @@ export function getPosiciones (f1, f2, distanciaX, distanciaY, multiFicha){
 
     return resultFichas;
 }
+
+export function comprobarColisionConLosBordesMapa (pos, fichaDefaultInfo, tableroConfig){
+    if (pos.x >= fichaDefaultInfo.radio/2 && pos.x <= tableroConfig.width-(fichaDefaultInfo.radio/2)) {
+      if (pos.y >= fichaDefaultInfo.radio/2 && pos.y <= tableroConfig.height-(fichaDefaultInfo.radio/2)) {
+        return true;
+      }
+    }
+}
