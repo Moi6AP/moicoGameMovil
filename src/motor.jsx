@@ -1,6 +1,8 @@
 import { useEffect, createRef, useRef, useState } from 'react';
-import { Alert, Pressable, StyleSheet, Dimensions, Text, View } from 'react-native';
+import { Alert, Pressable, Dimensions, Text, View } from 'react-native';
 import { isColision, getPosiciones, comprobarColisionConLosBordesMapa } from './utils';
+import { Audio } from 'expo-av';
+
 
 export default function Motor () {
 
@@ -37,6 +39,11 @@ export default function Motor () {
       return;
     }
 
+    (async()=>{
+      const { sound } = await Audio.Sound.createAsync(require("../assets/sounds/ponerFicha2.mp3"));
+      sound.playAsync();
+    })();
+
     fichaID.current = fichaID.current+1;
 
     const newFicha = {
@@ -53,7 +60,6 @@ export default function Motor () {
     newFicha.data.color = jugadorTurnoIndex.current == 0 ? "blue" : "purple";
     newFicha.ref = createRef(null);
     newFicha.element = getElementFicha(newFicha.ref, newFicha.data);
-    setTimeout(()=>console.log(newFicha.ref.current.removeChild), 500);
 
     // AGREGAR AL MAPA Y AL DOM
     setMap(map1 => [...map1, newFicha]);
@@ -112,6 +118,13 @@ export default function Motor () {
 
     if (colisionados.length > 0) {
       jugadores.current[jugadorTurnoIndex.current].cantidadFichas = (jugadores.current[jugadorTurnoIndex.current].cantidadFichas+colisionados.length)+1;      
+
+      setTimeout(()=>{
+        (async()=>{
+          const { sound } = await Audio.Sound.createAsync(require("../assets/sounds/choque.mp3"));
+          sound.playAsync();
+        })();
+      }, 100);
 
       setMap(newMap);
       setTimeout(()=>{
