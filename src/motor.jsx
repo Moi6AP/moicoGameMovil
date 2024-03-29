@@ -1,35 +1,41 @@
 import { useEffect, createRef, useRef, useState } from 'react';
-import { Alert, Pressable, Dimensions, Text, View } from 'react-native';
-import { isColision, getPosiciones, comprobarColisionConLosBordesMapa } from './utils';
+import { Alert, Pressable, Dimensions, Text, View, ImageBackground } from 'react-native';
+import { isColision, getPosiciones, comprobarColisionConLosBordesMapa, partida } from './utils';
 import { Audio } from 'expo-av';
 
 
 export default function Motor () {
 
+  const animacionMS = 300;
   const [map, setMap] = useState([]);
   const [initScreen, setInitScreen] = useState(false);
+  const refTxtTocaForPlay = useRef(null);
   const tableroConfig = useRef(false);
   const tirarFicha = useRef(true);
+  const infoPartida = useRef(false);
 
   const jugadores = useRef([
     {
-      id:"MOI11",
       cantidadFichas: 10,
       color:"purple"
     }, 
     {
-      id:"MOI22",
       cantidadFichas: 10,
       color:"blue"
     }
   ]);
   const jugadorTurnoIndex = useRef(0); 
+  const [updRender, setUpdRender] = useState(0);
 
   const fichaID = useRef(0);
   const fichaDefaultInfo = useRef(false);
   const getElementFicha = (newRef, data)=> <View key={data.id} ref={newRef} style={{position:"absolute", left:data.x, top:data.y, backgroundColor: data.color || "purple", height:data.radio, width:data.radio, borderRadius:data.radio/2}}/>;
 
   function ponerFicha (position){
+
+    if (!infoPartida.current.inGame) {
+        return;
+    }
 
     tirarFicha.current = false;
 
@@ -80,6 +86,33 @@ export default function Motor () {
         }
     });
 
+    if (colisionados.length > 0) {
+  
+      setTimeout(()=>{
+        (async()=>{
+          const { sound } = await Audio.Sound.createAsync(require("../assets/sounds/choque.mp3"));
+          sound.playAsync();
+        })();
+      }, animacionMS+50);
+
+      if (infoPartida.current.mode == "local") {
+        jugadores.current[jugadorTurnoIndex.current].cantidadFichas = (jugadores.current[jugadorTurnoIndex.current].cantidadFichas+colisionados.length)+1;      
+        jugadorTurnoIndex.current = jugadorTurnoIndex.current == jugadores.current.length-1 ? 0 : jugadorTurnoIndex.current+1;
+      }
+
+    } else {
+      if (infoPartida.current.mode == "local") {
+        jugadores.current[jugadorTurnoIndex.current].cantidadFichas = jugadores.current[jugadorTurnoIndex.current].cantidadFichas-1;
+
+        jugadorTurnoIndex.current = jugadorTurnoIndex.current == jugadores.current.length-1 ? 0 : jugadorTurnoIndex.current+1;
+        
+        tirarFicha.current = true;
+        setUpdRender(e => e+1);
+      }
+    }
+
+    infoPartida.current.mode == "local" && partida.set({turno: jugadorTurnoIndex.current, jugadores:jugadores.current});
+
     if (colisionados.length > 1) {
       await Promise.all(colisionados.map(async(f, i)=>{
         if (i == colisionados.length-1) {
@@ -117,32 +150,10 @@ export default function Motor () {
     }
 
     if (colisionados.length > 0) {
-      jugadores.current[jugadorTurnoIndex.current].cantidadFichas = (jugadores.current[jugadorTurnoIndex.current].cantidadFichas+colisionados.length)+1;      
-
-      setTimeout(()=>{
-        (async()=>{
-          const { sound } = await Audio.Sound.createAsync(require("../assets/sounds/choque.mp3"));
-          sound.playAsync();
-        })();
-      }, 100);
-
       setMap(newMap);
-      setTimeout(()=>{
-        jugadorTurnoIndex.current = jugadorTurnoIndex.current == jugadores.current.length-1 ? 0 : jugadorTurnoIndex.current+1;
+      if (infoPartida.current.mode == "local"){
         tirarFicha.current = true;
-      }, 400);
-
-    } else {
-      jugadores.current[jugadorTurnoIndex.current].cantidadFichas = jugadores.current[jugadorTurnoIndex.current].cantidadFichas-1;
-
-      if (jugadores.current[jugadorTurnoIndex.current].cantidadFichas == 0) {
-        const name = jugadores.current[jugadorTurnoIndex.current].id;
-        setTimeout(()=>Alert.alert("GANO JUGADOR: "+name), 400);
       }
-
-      jugadorTurnoIndex.current = jugadorTurnoIndex.current == jugadores.current.length-1 ? 0 : jugadorTurnoIndex.current+1;
-      
-      tirarFicha.current = true;
     }
 
   }
@@ -162,33 +173,36 @@ export default function Motor () {
 
     let ms = msProp || 300;
     const fps = 20;
-    let currentMS = 0;
+    /* let currentMS = 0; */
     let porcentaje = 0;
     const indexFicha = map.findIndex(a => a.data.id == old.id);
 
+    const start = Date.now();   
     indexFicha > -1 && await new Promise (complete => {
-      const animFrame = setInterval(()=>{
-        currentMS += ms/fps;
 
-        porcentaje = currentMS/ms*100;
-
-        let valX = Math.abs(old.x-neww.x);
-        let valY = Math.abs(old.y-neww.y);
-
-        map[indexFicha].ref.current.setNativeProps({
-          style:{
-            left: (old.x > neww.x ? old.x-(porcentaje*valX/100) : old.x+(porcentaje*valX/100)),
-            top:  (old.y > neww.y ? old.y-(porcentaje*valY/100) : old.y+(porcentaje*valY/100))
-          }
-        });
-
-        if (currentMS == ms) {
-          clearInterval(animFrame);
-          setTimeout(() => complete(), 250);
-        }
-
-      }, ms/fps);          
+      for (let i = 1; i <= fps; i++) {
+        const currentMS = ms/fps*i;
+        setTimeout(()=>anim(currentMS), currentMS);
+      }
+      
+      setTimeout(complete, ms+800);
     });
+
+    function anim (currentMS){
+
+      porcentaje = currentMS/ms*100;
+
+      let valX = Math.abs(old.x-neww.x);
+      let valY = Math.abs(old.y-neww.y);
+
+      map[indexFicha].ref.current.setNativeProps({
+        style:{
+          left: (old.x > neww.x ? old.x-(porcentaje*valX/100) : old.x+(porcentaje*valX/100)),
+          top:  (old.y > neww.y ? old.y-(porcentaje*valY/100) : old.y+(porcentaje*valY/100))
+        }
+      });      
+    }
+    console.log(Date.now()-start);
 
   }
 
@@ -198,18 +212,23 @@ export default function Motor () {
     }
   }
 
+  function iniciarPartida(){
+    partida.set({inGame:true});
+  }
+
   useEffect(()=>{
     if (map.length > 0) {
-      comprobarColisionEnMapa(); 
+      comprobarColisionEnMapa();
     }
   }, [map]);
 
+  // INICIALIZAR JUEGO Y AJUSTES, TAMAÑO ETC
   useEffect(()=>{
     const screen = Dimensions.get("screen");
 
     if (!fichaDefaultInfo.current && !tableroConfig.current) {
 
-      tableroConfig.current = {height:screen.height*85/100, width:screen.width*45/100};
+      tableroConfig.current = {height:screen.height*70/100, width:screen.width*45/100};
       const radio = tableroConfig.current.width*7/100;
 
       fichaDefaultInfo.current = {
@@ -225,23 +244,40 @@ export default function Motor () {
     /* setTimeout(()=>{
       ponerFicha({x:314.28, y:296.28});
     }, 1000); */
+
+  }, []);
+
+
+  // ACCION DEL JUEGO
+  useEffect(()=>{
+
+    let visibleTocaForPlay = true;
+    const intervalTocaParaJugar = setInterval(()=>{
+      refTxtTocaForPlay.current.setNativeProps({style:{display: visibleTocaForPlay ? "none" : "block"}});
+      visibleTocaForPlay = !visibleTocaForPlay;
+    }, 1300);
+
+    partida.get((data)=>{
+      infoPartida.current = data;
+
+      if (data.inGame) {
+        clearInterval(intervalTocaParaJugar);
+        refTxtTocaForPlay.current.setNativeProps({style:{display:"none"}});
+      }
+    }, "motor");
+
   }, []);
 
    return initScreen && (
-    <View style={{width: tableroConfig.current.width, height: tableroConfig.current.height, borderWidth:0, borderColor:"#fff"}}>
-      {/* <View>
-          <Text style={{color:"#fff"}}>Turno de: {config.turnoJugadorName}</Text>
-
-          <Text style={{color:"#fff"}}>Fichas de {config.jugadores[0]?.id}: {config.jugadores[0].cantidadFichas}</Text>
-          <Text style={{marginRight:100, color:"#fff"}}>Fichas de {config.jugadores[1].id}: {config.jugadores[1].cantidadFichas}</Text>
-      </View> */}
-      <Pressable style={{flex:1, backgroundColor:"#000"}} onPress={(e)=>onPressPonerFicha(e.nativeEvent)}>
+    <View style={{width: tableroConfig.current.width, backgroundColor:"transparent", height: tableroConfig.current.height, marginBottom:"auto"}}>
+      <Pressable style={{flex:1}} onPress={(e)=>!infoPartida.current.inGame ? iniciarPartida() : onPressPonerFicha(e.nativeEvent)}>
 
         {map.map((f)=>f.element)}
 
       </Pressable>
-
-      <View style={{height: tableroConfig.current.height+2, width:tableroConfig.current.width+2, position:"absolute", left:-1, top:-1, zIndex:-1, backgroundColor:"red"}} />
+      <View style={{height: tableroConfig.current.height, width:tableroConfig.current.width, position:"absolute", alignItems:"center", justifyContent:"center", borderRadius:2,  left:0, top:0, zIndex:-1, borderColor:"#fff", borderWidth:1}} >
+        <Text ref={refTxtTocaForPlay} style={{color:"#fff"}}>Toca para jugar</Text>
+      </View>
     </View>
   )
 }

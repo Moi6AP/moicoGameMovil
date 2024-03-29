@@ -54,3 +54,34 @@ export function comprobarColisionConLosBordesMapa (pos, fichaDefaultInfo, tabler
       }
     }
 }
+
+const subsPartida = [];
+const subsOnline = [];
+let lastPartidaData = {}; 
+
+function enviarDataYComprobarDesuscribers (type, data){
+
+    let newData = false;
+    if (type == "partida") {
+        newData = {...lastPartidaData, ...data};
+        lastPartidaData = newData;
+    }
+
+    (type == "partida" ? subsPartida : subsOnline).map((send)=>{
+        const searchID = (e)=>(type == "partida" ? subsPartida : subsOnline)[e](e => e[1] == send[1]);
+        if (searchID("findIndex") !== searchID("findLastIndex")) {
+            (type == "partida" ? subsPartida : subsOnline).splice(searchID("findIndex"), 1);
+        }
+        send[0](newData || data);
+    })
+}
+
+export const partida = {
+    set:(data)=>enviarDataYComprobarDesuscribers("partida", data),
+    get:(e, id)=>subsPartida.push([e, id])
+};
+
+export const online = {
+    set:(data)=>enviarDataYComprobarDesuscribers(subsOnline, data),
+    get:(e, id)=>subsOnline.push([e, id])
+};
