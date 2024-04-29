@@ -1,3 +1,7 @@
+import { Dimensions } from "react-native";
+
+export const d = (e, p) => Dimensions.get("window")[e == "w" ? "width" : "height"]*p/100;
+
 export function isColision(f1, f2, onlyRadio) {
   
     // Calcular la distancia entre los centros de los círculos
@@ -9,7 +13,7 @@ export function isColision(f1, f2, onlyRadio) {
 }
 
 export function getPosiciones (f1, f2, distanciaX, distanciaY, multiFicha){
-
+    
     let pendiente = Math.abs(Math.abs(f1.y-f2.y)/Math.abs(f1.x-f2.x));
 
     const xMax = f1.x > f2.x ? true : false;
