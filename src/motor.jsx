@@ -1,8 +1,9 @@
 import { useEffect, createRef, useRef, useState } from 'react';
-import { Alert, Pressable, Dimensions, Text, View, ImageBackground } from 'react-native';
+import { Pressable, Dimensions, Text, View } from 'react-native';
 import { isColision, getPosiciones, comprobarColisionConLosBordesMapa, partida } from './utils';
 import { Audio } from 'expo-av';
 import { io } from 'socket.io-client';
+import { animarTableroHorizontal, clearAnim } from './animaciones';
 
 export default function Motor () {
 
@@ -17,6 +18,7 @@ export default function Motor () {
 
   const [updRender, setUpdRender] = useState(0);
 
+  const tableroRef = useRef(null);
   const fichaID = useRef(0);
   const fichaDefaultInfo = useRef(false);
   const getElementFicha = (newRef, data)=> <View key={data.id} ref={newRef} style={{position:"absolute", borderColor:"#fff", borderWidth:1, left:data.x, top:data.y, backgroundColor: data.color || "purple", height:data.radio, width:data.radio, borderRadius:data.radio/2}}/>;
@@ -35,7 +37,6 @@ export default function Motor () {
       return;
     }
 
-    console.log(infoPartida.current);
     if (infoPartida.current.mode == "online" && !tiroOnline) {
       if (infoPartida.current.turno == infoPartida.current.id) {
         socket.current.emit("ponerFicha", {x:position.x/tableroConfig.current.width*100, y:position.y/tableroConfig.current.height*100});
@@ -169,11 +170,10 @@ export default function Motor () {
     await animar(f1, destinoFichas.f1);
   }
 
-  async function animar (old, neww, msProp){
+  async function animar (old, neww, msProp, e){
 
     let ms = msProp || 300;
     const fps = 20;
-    /* let currentMS = 0; */
     let porcentaje = 0;
     const indexFicha = map.findIndex(a => a.data.id == old.id);
 
@@ -216,7 +216,7 @@ export default function Motor () {
 
       socket.current.on("partidaDefault", (data)=>{
         partida.set(data);
-      });  
+      });
 
       socket.current.on("newFicha", (newFicha)=>{
         ponerFicha({...newFicha, x:newFicha.x*tableroConfig.current.width/100, y:newFicha.y*tableroConfig.current.height/100}, true);
@@ -224,7 +224,11 @@ export default function Motor () {
     } else {
       partida.set({inGame:true});
     }
-  }   
+  }
+  
+  async function tirarHabilidad (){    
+    const anim = animarTableroHorizontal(tableroRef, 130, tableroConfig.current.width*8/100);
+  }
 
   useEffect(()=>{
     if (map.length > 0 && !tirarFicha.current) {
@@ -259,11 +263,13 @@ export default function Motor () {
 
       fichaDefaultInfo.current = {
         radio: radio,
-        colision: radio*3.2, 
+        colision: radio*2.8, 
         color:"purple"
       }
       
     }
+
+    tirarHabilidad();
 
     setInitScreen(true);
     /* setUpdRender(e => e+1); */
@@ -297,7 +303,7 @@ export default function Motor () {
         setUpdRender(1);
         seCanceloInterval = true;
       }
-      if (!data.inGame && seCanceloInterval) {
+      if (!data.inGame && false && seCanceloInterval) {
         console.log("init interval");
         intervalTocaParaJugar = setInterval(intervalFunctionTocaPaJugar, 1300);
         seCanceloInterval = false;
@@ -309,7 +315,7 @@ export default function Motor () {
   }, []);
 
    return initScreen && (
-    <View style={{width: tableroConfig.current.width, backgroundColor:"transparent", height: tableroConfig.current.height, marginBottom:"auto", marginTop: !infoPartida.current.inGame ? "auto" : 0,}}>
+    <View ref={tableroRef} style={{width: tableroConfig.current.width, backgroundColor:"transparent", height: tableroConfig.current.height, marginBottom:"auto", marginTop: !infoPartida.current.inGame ? "auto" : 0,}}>
       <Pressable style={{flex:1}} onPress={(e)=>!infoPartida.current.inGame ? iniciarPartida() : onPressPonerFicha(e.nativeEvent)}>
 
         {map.map((f)=>f.element)}
